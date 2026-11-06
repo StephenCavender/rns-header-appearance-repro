@@ -1,148 +1,55 @@
-import {
-  DarkTheme,
-  DefaultTheme,
-  NavigationContainer,
-  useTheme,
-  type Theme,
-} from "@react-navigation/native";
+import { DarkTheme, DefaultTheme, NavigationContainer, useTheme } from "@react-navigation/native";
 import {
   createNativeStackNavigator,
   type NativeStackScreenProps,
 } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
-import {
-  Appearance,
-  Button,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  useColorScheme,
-  View,
-} from "react-native";
+import { Appearance, Button, ScrollView, StyleSheet, Text, useColorScheme, View } from "react-native";
 
-// Repro: on iOS 26, a visible native-stack header doesn't restyle when the app's
-// light/dark appearance changes. See README.md.
+// Repro: on iOS 26, a transparent native-stack header over a ScrollView doesn't
+// restyle when the app's light/dark appearance changes. See README.md.
 
-type Params = { Home: undefined; SettingsView: undefined; SettingsScrollView: undefined };
+type Params = { Home: undefined; ScrollViewScreen: undefined; ViewScreen: undefined };
 
 const Stack = createNativeStackNavigator<Params>();
 
-/** The app this was found in uses its own neutral palette instead of the defaults. */
-const CUSTOM_LIGHT: Theme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: "#ffffff",
-    card: "#ffffff",
-    text: "#0a0a0a",
-    border: "#e5e5e5",
-    primary: "#171717",
-  },
-};
-const CUSTOM_DARK: Theme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    background: "#0a0a0a",
-    card: "#171717",
-    text: "#fafafa",
-    border: "#262626",
-    primary: "#e5e5e5",
-  },
-};
-
 export default function App() {
   // The navigation theme follows the app's appearance, so a change re-renders
-  // every header with the other theme's colours and style.
+  // every header with the other theme's style.
   const scheme = useColorScheme();
-  const [customColours, setCustomColours] = useState(false);
-  // Expo Router's native stack makes headers transparent on iOS 26 (the system Liquid Glass bar).
-  const [transparentHeader, setTransparentHeader] = useState(false);
-  const theme = customColours
-    ? scheme === "dark"
-      ? CUSTOM_DARK
-      : CUSTOM_LIGHT
-    : scheme === "dark"
-      ? DarkTheme
-      : DefaultTheme;
   return (
-    <NavigationContainer theme={theme}>
-      <Stack.Navigator screenOptions={{ headerTransparent: transparentHeader }}>
-        <Stack.Screen name="Home">
-          {(props) => (
-            <HomeScreen
-              {...props}
-              customColours={customColours}
-              onCustomColoursChange={setCustomColours}
-              transparentHeader={transparentHeader}
-              onTransparentHeaderChange={setTransparentHeader}
-            />
-          )}
-        </Stack.Screen>
+    <NavigationContainer theme={scheme === "dark" ? DarkTheme : DefaultTheme}>
+      {/* Transparent headers, as Expo Router's native stack uses on iOS 26. */}
+      <Stack.Navigator screenOptions={{ headerTransparent: true }}>
+        <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen
-          name="SettingsView"
-          component={SettingsView}
-          options={{ title: "Settings (View)" }}
+          name="ScrollViewScreen"
+          component={ScrollViewScreen}
+          options={{ title: "ScrollView (bug)" }}
         />
-        <Stack.Screen
-          name="SettingsScrollView"
-          component={SettingsScrollView}
-          options={{ title: "Settings (ScrollView)" }}
-        />
+        <Stack.Screen name="ViewScreen" component={ViewScreen} options={{ title: "View (works)" }} />
       </Stack.Navigator>
       <StatusBar style="auto" />
     </NavigationContainer>
   );
 }
 
-function HomeScreen({
-  navigation,
-  customColours,
-  onCustomColoursChange,
-  transparentHeader,
-  onTransparentHeaderChange,
-}: NativeStackScreenProps<Params, "Home"> & {
-  customColours: boolean;
-  onCustomColoursChange: (value: boolean) => void;
-  transparentHeader: boolean;
-  onTransparentHeaderChange: (value: boolean) => void;
-}) {
+function HomeScreen({ navigation }: NativeStackScreenProps<Params, "Home">) {
   const { colors } = useTheme();
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <SchemeLabel />
-      <View style={styles.row}>
-        <Text style={{ color: colors.text }}>Custom header colours</Text>
-        <Switch value={customColours} onValueChange={onCustomColoursChange} />
-      </View>
-      <View style={styles.row}>
-        <Text style={{ color: colors.text }}>Transparent header</Text>
-        <Switch value={transparentHeader} onValueChange={onTransparentHeaderChange} />
-      </View>
-      <Button title="Open Settings (View)" onPress={() => navigation.navigate("SettingsView")} />
       <Button
-        title="Open Settings (ScrollView)"
-        onPress={() => navigation.navigate("SettingsScrollView")}
+        title="Open ScrollView screen"
+        onPress={() => navigation.navigate("ScrollViewScreen")}
       />
+      <Button title="Open View screen" onPress={() => navigation.navigate("ViewScreen")} />
     </View>
   );
 }
 
-/** Plain View content: the header never sits over scrolled content. */
-function SettingsView() {
-  const { colors } = useTheme();
-  return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <SchemeLabel />
-      <AppearanceButtons />
-    </View>
-  );
-}
-
-/** ScrollView content under the header, as most real screens have. */
-function SettingsScrollView() {
+/** The header sits over a ScrollView: it keeps the previous appearance after a change. */
+function ScrollViewScreen() {
   const { colors } = useTheme();
   return (
     <ScrollView
@@ -153,6 +60,17 @@ function SettingsScrollView() {
       <SchemeLabel />
       <AppearanceButtons />
     </ScrollView>
+  );
+}
+
+/** The same screen with a plain View: the header restyles correctly. */
+function ViewScreen() {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <SchemeLabel />
+      <AppearanceButtons />
+    </View>
   );
 }
 
@@ -176,5 +94,4 @@ function SchemeLabel() {
 const styles = StyleSheet.create({
   screen: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   scrollContent: { alignItems: "center", gap: 12, padding: 24 },
-  row: { flexDirection: "row", alignItems: "center", gap: 12 },
 });
