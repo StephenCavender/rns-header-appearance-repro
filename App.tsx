@@ -58,6 +58,8 @@ export default function App() {
   // every header with the other theme's colours and style.
   const scheme = useColorScheme();
   const [customColours, setCustomColours] = useState(false);
+  // Expo Router's native stack makes headers transparent on iOS 26 (the system Liquid Glass bar).
+  const [transparentHeader, setTransparentHeader] = useState(false);
   const theme = customColours
     ? scheme === "dark"
       ? CUSTOM_DARK
@@ -67,13 +69,15 @@ export default function App() {
       : DefaultTheme;
   return (
     <NavigationContainer theme={theme}>
-      <Stack.Navigator>
+      <Stack.Navigator screenOptions={{ headerTransparent: transparentHeader }}>
         <Stack.Screen name="Home">
           {(props) => (
             <HomeScreen
               {...props}
               customColours={customColours}
               onCustomColoursChange={setCustomColours}
+              transparentHeader={transparentHeader}
+              onTransparentHeaderChange={setTransparentHeader}
             />
           )}
         </Stack.Screen>
@@ -97,9 +101,13 @@ function HomeScreen({
   navigation,
   customColours,
   onCustomColoursChange,
+  transparentHeader,
+  onTransparentHeaderChange,
 }: NativeStackScreenProps<Params, "Home"> & {
   customColours: boolean;
   onCustomColoursChange: (value: boolean) => void;
+  transparentHeader: boolean;
+  onTransparentHeaderChange: (value: boolean) => void;
 }) {
   const { colors } = useTheme();
   return (
@@ -108,6 +116,10 @@ function HomeScreen({
       <View style={styles.row}>
         <Text style={{ color: colors.text }}>Custom header colours</Text>
         <Switch value={customColours} onValueChange={onCustomColoursChange} />
+      </View>
+      <View style={styles.row}>
+        <Text style={{ color: colors.text }}>Transparent header</Text>
+        <Switch value={transparentHeader} onValueChange={onTransparentHeaderChange} />
       </View>
       <Button title="Open Settings (View)" onPress={() => navigation.navigate("SettingsView")} />
       <Button
